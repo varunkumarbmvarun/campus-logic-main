@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Overview{% endblock %}
+{% block breadcrumb %}Overview{% endblock %}
+{% block content %}
+<div class="page-heading heading-row">
+  <div><div class="eyebrow"><span class="eyebrow-line"></span> KNOWLEDGE AT A GLANCE</div><h1>Your college, <span>connected.</span></h1><p>Explore institutional records and discover what your knowledge base can infer.</p></div>
+  <a class="button button-primary" href="{{ url_for('query_page') }}"><span>⌕</span> Ask the knowledge base</a>
+</div>
+<div class="stats-grid">
+  {% set cards = [('students', 'Students', '♙', 'blue'), ('professors', 'Professors', '♧', 'purple'), ('courses', 'Courses', '▤', 'cyan'), ('departments', 'Departments', '⌘', 'orange'), ('facts', 'Logical facts', '◈', 'green'), ('rules', 'Inference rules', '∴', 'pink'), ('subjects','Subjects','▤','cyan'), ('assignments','Assignments','⇧','purple'), ('pending_submissions','Pending submissions','◷','orange'), ('low_attendance','Low attendance','!','pink'), ('average_marks','Avg. marks (%)','◫','blue'), ('fees_collected','Fees collected','₹','green'), ('pending_fees','Pending fees','₹','orange'), ('overdue_fees','Overdue fees','!','pink'), ('transactions','Transactions','↗','cyan')] %}
+  {% for key, label, icon, color in cards %}
+  <article class="stat-card"><div class="stat-top"><span class="stat-icon {{ color }}">{{ icon }}</span><span class="stat-trend">LIVE</span></div><div class="stat-value">{{ stats[key] }}</div><div class="stat-label">{{ label }}</div><div class="stat-foot">Stored in your knowledge base</div></article>
+  {% endfor %}
+</div>
+<div class="content-grid dashboard-grid">
+  <section class="panel query-promo">
+    <div class="panel-heading"><div><div class="eyebrow">REASONING WORKSPACE</div><h2>Ask a question</h2></div><span class="panel-icon">✳</span></div>
+    <p>Ask about teaching, enrollment, departments, or inferred associations. Answers are calculated from facts and rules.</p>
+    <form class="quick-query" action="{{ url_for('query_page') }}" method="post"><label class="sr-only" for="quick-query">Ask a supported question</label><span>⌕</span><input id="quick-query" name="query" placeholder="Try “Which students study AI?”"><button class="button button-primary" type="submit">Run query <span>→</span></button></form>
+    <div class="prompt-row"><span>TRY</span><button type="button" class="prompt-chip" data-fill-query="Who teaches AI?">Who teaches AI?</button><button type="button" class="prompt-chip" data-fill-query="Is Ravi associated with CSE?">Is Ravi associated with CSE?</button></div>
+  </section>
+  <section class="panel recent-panel">
+    <div class="panel-heading"><div><div class="eyebrow">RECENT ACTIVITY</div><h2>Query history</h2></div><a class="text-link" href="{{ url_for('history_page') }}">View all →</a></div>
+    {% if history %}
+    <div class="recent-list">{% for item in history %}<div class="recent-item"><span class="recent-icon">⌕</span><div><strong>{{ item.query_text }}</strong><small>{{ item.created_at }}</small></div><span class="recent-arrow">↗</span></div>{% endfor %}</div>
+    {% else %}<div class="empty-state compact"><span>◷</span><p>Your queries will appear here.</p></div>{% endif %}
+  </section>
+</div>
+<section class="panel rules-overview">
+  <div class="panel-heading"><div><div class="eyebrow">LOGIC IN ACTION</div><h2>Inference rules</h2></div><a class="text-link" href="{{ url_for('facts_page') }}">Explore knowledge base →</a></div>
+  <div class="rule-strip">{% for rule in rules %}<div class="rule-mini"><span class="rule-id">{{ rule.id }}</span><div><strong>{{ rule.name }}</strong><code>{{ rule.formula }}</code></div></div>{% endfor %}</div>
+</section>
+<section class="panel announcement-overview">
+  <div class="panel-heading"><div><div class="eyebrow">CAMPUS UPDATES</div><h2>Latest announcements</h2></div><a class="text-link" href="{{ url_for('college.announcements') }}">View board →</a></div>
+  <div class="announcement-preview-list">{% for item in announcements %}<div class="announcement-preview"><span class="code-chip">{{ item.priority }}</span><div><strong>{{ item.title }}</strong><small>{{ item.category }} · {{ item.published_at }}</small></div></div>{% else %}<div class="small-empty">No announcements published.</div>{% endfor %}</div>
+</section>
+{% endblock %}

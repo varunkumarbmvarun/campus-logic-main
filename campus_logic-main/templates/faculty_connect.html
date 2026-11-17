@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+{% block title %}Faculty connect{% endblock %}
+{% block breadcrumb %}Faculty connect{% endblock %}
+{% block content %}
+<div class="communication-layout">
+  <div class="panel communication-sidebar">
+    <div class="panel-heading">
+      <div>
+        <div class="eyebrow"><span class="eyebrow-line"></span> PRIVATE DIRECTORY</div>
+        <h2>{% if current_user.role == 'faculty' %}My students{% elif current_user.role == 'student' %}My faculty{% elif current_user.role == 'hod' %}Department faculty{% else %}College contacts{% endif %}</h2>
+      </div>
+      <span class="presence-indicator" data-user-presence title="Your availability updates automatically"></span>
+    </div>
+    {% if contacts %}
+      <label class="contact-search">
+        <span aria-hidden="true">⌕</span>
+        <input type="search" placeholder="Search contacts" aria-label="Search contacts" data-contact-search>
+      </label>
+    {% endif %}
+    {% if contacts %}
+      {% for contact in contacts %}
+        <a class="teacher-card {% if selected_contact and selected_contact.id == contact.id %}teacher-card-active{% endif %}"
+           data-contact-card
+           href="{{ url_for('college.faculty_connect', contact_id=contact.id) }}">
+          <div class="teacher-avatar">{{ contact.name[:2]|upper }}</div>
+          <div class="teacher-meta">
+            <strong>{{ contact.name }}</strong>
+            <small>{{ role_labels[contact.role] }} · <span data-contact-presence="{{ contact.id }}">{{ contact.presence|title }}</span></small>
+            <span>Phone number stays private</span>
+          </div>
+        </a>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state compact"><span>◌</span><p>No eligible contacts are available. Students see teachers assigned to their enrolled subjects; faculty see students in their classes.</p></div>
+    {% endif %}
+  </div>
+
+  <div class="panel communication-main">
+    <div id="incoming-call-list" class="incoming-call-list" aria-live="polite">
+      {% for call in incoming_calls %}
+        <div class="incoming-call">
+          <div><strong>Incoming secure call from {{ call.caller_name }}</strong><small>Audio/video and screen sharing are available after you accept.</small></div>
+          <div class="form-actions">
+            <form method="post" action="{{ url_for('college.respond_faculty_call', room_id=call.room_id) }}">
+              <input type="hidden" name="response" value="accept">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button class="button button-primary" type="submit">Accept</button>
+            </form>
+            <form method="post" action="{{ url_for('college.respond_faculty_call', room_id=call.room_id) }}">
+              <input type="hidden" name="response" value="decline">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+              <button class="button button-quiet" type="submit">Decline</button>
+            </form>
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+    <script>
+      (() => {
+        const container = document.getElementById('incoming-call-list');
+        const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+        const rendered = new Set(Array.from(container.querySelectorAll('form'),
+          (form) => form.action.split('/').slice(-2, -1)[0]));
+        const pollCalls = async () => {
+          const response = await fetch('/communication/calls/incoming', {cache: 'no-store'});
+          if (!response.ok) return;
+          const data = await response.json();
+          for (const call of data.calls || []) {
+            if (rendered.has(call.room_id)) continue;
+            rendered.add(call.room_id);
+            const item = document.createElement('div');
+            item.className = 'incoming-call';
+            const details = document.createElement('div');
+            const heading = document.createElement('strong');
+            heading.textContent = 'Incoming secure call from ' + call.caller_name;
+            const note = document.createElement('small');
+            note.textContent = 'Audio/video and screen sharing are available after you accept.';
+            details.append(heading, note);
+            const actions = document.createElement('div');
+            actions.className = 'form-actions';
+            for (const [responseValue, label, buttonClass] of [
+              ['accept', 'Accept', 'button button-primary'],
+              ['decline', 'Decline', 'button button-quiet']
+            ]) {
+              const form = document.createElement('form');
+              form.method = 'post';
+              form.action = '/communication/call/' + encodeURIComponent(call.room_id) + '/respond';
+              const responseField = document.createElement('input');
+              responseField.type = 'hidden';
+              responseField.name = 'response';
+              responseField.value = responseValue;
+              const csrfField = document.createElement('input');
+              csrfField.type = 'hidden';
+              csrfField.name = 'csrf_token';
+              csrfField.value = csrfToken;
+              const button = document.createElement('button');
+              button.type = 'submit';
+              button.className = buttonClass;
+              button.textContent = label;
+              form.append(responseField, csrfField, button);
+              actions.appendChild(form);
+            }
+            item.append(details, actions);
+            container.prepend(item);
+          }
+        };
+        const pollPresence = async () => {
+          const response = await fetch('/communication/contacts/status', {cache: 'no-store'});
+          if (!response.ok) return;
+          const data = await response.json();
+          for (const contact of data.contacts || []) {
+            for (const node of document.querySelectorAll('[data-contact-presence="' + contact.id + '"], [data-selected-presence="' + contact.id + '"]')) {
+              node.textContent = contact.presence.charAt(0).toUpperCase() + contact.presence.slice(1);
+              node.dataset.presence = contact.presence;
+            }
+          }
+        };
+        pollCalls().catch((error) => console.error('Unable to check incoming calls:', error));
+        pollPresence().catch((error) => console.error('Unable to refresh contact status:', error));
+        window.setInterval(() => pollCalls().catch((error) => console.error('Unable to check incoming calls:', error)), 5000);
+        window.setInterval(() => pollPresence().catch((error) => console.error('Unable to refresh contact status:', error)), 15000);
+      })();
+    </script>
+
+    {% if selected_contact %}
+      <div class="teacher-header-row">
+        <div>
+          <div class="eyebrow"><span class="eyebrow-line"></span> PRIVATE CHAT</div>
+          <h2>{{ selected_contact.name }}</h2>
+          <p>{{ role_labels[selected_contact.role] }} · <span data-selected-presence="{{ selected_contact.id }}">{{ selected_contact.presence|title }}</span></p>
+        </div>
+        <form method="post" action="{{ url_for('college.start_faculty_call', contact_id=selected_contact.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button class="button button-primary" type="submit">Request a call</button>
+        </form>
+      </div>
+
+      <div class="privacy-banner">
+        <span aria-hidden="true">🔒</span>
+        <div>
+          <strong>Private contact</strong>
+          <p>Phone numbers are never shown. Chat and calls stay in the app. Calls require the recipient to accept; you can share your screen after the call connects.</p>
+        </div>
+      </div>
+
+      <div class="message-thread" id="message-thread" aria-live="polite" aria-label="Conversation">
+        {% for message in messages %}
+          <div class="message-bubble {% if message.sender_id == current_user.id %}message-self{% endif %}" data-message-id="{{ message.id }}">
+            <strong>{{ 'You' if message.sender_id == current_user.id else selected_contact.name }}</strong>
+            <p>{{ message.message }}</p>
+            <small>{{ message.created_at }}</small>
+          </div>
+        {% else %}
+          <div class="empty-state compact" id="empty-thread"><span>✦</span><p>No messages yet. Start the conversation and share your project update.</p></div>
+        {% endfor %}
+      </div>
+
+      <form method="post" action="{{ url_for('college.send_faculty_message', contact_id=selected_contact.id) }}"
+            class="message-form" id="message-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <label class="field" for="message"><span>Message</span>
+          <textarea id="message" name="message" rows="4" maxlength="4000" required
+                    placeholder="Ask for guidance, share a project update, or request a live demo."></textarea>
+        </label>
+        <div class="form-actions">
+          <button class="button button-primary" type="submit">Send message</button>
+          <span class="form-note">Messages refresh automatically.</span>
+        </div>
+      </form>
+      <script>
+        (() => {
+          const contactId = {{ selected_contact.id|tojson }};
+          const currentUserId = {{ current_user.id|tojson }};
+          const thread = document.getElementById('message-thread');
+          let lastMessageId = Math.max(0, ...Array.from(thread.querySelectorAll('[data-message-id]'),
+            (node) => Number(node.dataset.messageId) || 0));
+          const addMessage = (message) => {
+            const empty = document.getElementById('empty-thread');
+            if (empty) empty.remove();
+            const bubble = document.createElement('div');
+            bubble.className = 'message-bubble' + (message.sender_id === currentUserId ? ' message-self' : '');
+            bubble.dataset.messageId = message.id;
+            const author = document.createElement('strong');
+            author.textContent = message.sender_id === currentUserId ? 'You' : {{ selected_contact.name|tojson }};
+            const text = document.createElement('p');
+            text.textContent = message.message;
+            const timestamp = document.createElement('small');
+            timestamp.textContent = message.created_at;
+            bubble.append(author, text, timestamp);
+            thread.appendChild(bubble);
+            thread.scrollTop = thread.scrollHeight;
+            lastMessageId = Math.max(lastMessageId, Number(message.id));
+          };
+          const refreshMessages = async () => {
+            const response = await fetch('/communication/messages/' + contactId + '?since_id=' + lastMessageId,
+              {cache: 'no-store'});
+            if (!response.ok) return;
+            const data = await response.json();
+            for (const message of data.messages || []) addMessage(message);
+          };
+          refreshMessages().catch((error) => console.error('Unable to refresh messages:', error));
+          window.setInterval(() => refreshMessages().catch((error) => console.error('Unable to refresh messages:', error)), 5000);
+        })();
+      </script>
+    {% else %}
+      <div class="empty-state"><span>◌</span><h3>No contact selected</h3><p>Select an eligible contact to start a private, in-app conversation.</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

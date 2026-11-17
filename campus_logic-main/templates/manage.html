@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}{{ config.title }}{% endblock %}
+{% block breadcrumb %}{{ config.title }}{% endblock %}
+{% block content %}
+<div class="page-heading heading-row">
+  <div><div class="eyebrow"><span class="eyebrow-line"></span> COLLEGE DATA</div><h1>{{ config.title }} <span>directory</span></h1><p>Manage {{ config.title|lower }} records. Changes synchronize with the logical knowledge base.</p></div>
+  <div class="count-badge"><strong>{{ rows|length }}</strong><span>records</span></div>
+</div>
+<div class="content-grid manage-grid">
+  <section class="panel form-panel">
+    <div class="panel-heading"><div><div class="eyebrow">{% if edit_record %}UPDATE RECORD{% else %}NEW RECORD{% endif %}</div><h2>{% if edit_record %}Edit {{ config.singular }}{% else %}Add {{ config.singular }}{% endif %}</h2></div><span class="panel-icon">{% if edit_record %}✎{% else %}+{% endif %}</span></div>
+    <form method="post" enctype="multipart/form-data" class="stack-form">
+      <input type="hidden" name="record_id" value="{{ edit_record.id if edit_record else '' }}">
+      {% for field in config.fields %}
+      <div class="field"><label for="{{ field.name }}">{{ field.label }}{% if field.required %}<span class="required">*</span>{% endif %}</label>
+        {% if field.type == 'file' %}<input id="{{ field.name }}" name="{{ field.name }}" type="file" accept=".png,.jpg,.jpeg,.pdf" {% if edit_record and edit_record.get(field.name) %}title="A file is currently stored; choose a new one to replace it"{% endif %}>
+        {% elif field.type == 'select' %}<select id="{{ field.name }}" name="{{ field.name }}" {% if field.required %}required{% endif %}><option value="" {% if not edit_record or not edit_record.get(field.name) %}selected{% endif %}>Choose {{ field.label|lower }}</option>{% for option in field.options %}<option value="{{ option }}" {% if edit_record and edit_record.get(field.name)|string == option|string %}selected{% endif %}>{{ option }}</option>{% endfor %}</select>
+        {% elif field.type == 'textarea' %}<textarea id="{{ field.name }}" name="{{ field.name }}" rows="3" {% if field.required %}required{% endif %}>{{ edit_record.get(field.name, '') if edit_record else '' }}</textarea>
+        {% elif field.type == 'department' %}<select id="{{ field.name }}" name="{{ field.name }}"><option value="">No department assigned</option>{% for item in options.departments %}<option value="{{ item.id }}" {% if edit_record and edit_record.department_id == item.id %}selected{% endif %}>{{ item.label }}</option>{% endfor %}</select>
+        {% elif field.type == 'professor' %}<select id="{{ field.name }}" name="{{ field.name }}"><option value="">No class teacher assigned</option>{% for item in options.professors %}<option value="{{ item.id }}" {% if edit_record and edit_record.get(field.name) == item.id %}selected{% endif %}>{{ item.label }}</option>{% endfor %}</select>
+        {% else %}<input id="{{ field.name }}" name="{{ field.name }}" type="{{ 'number' if field.type == 'decimal' else (field.type or 'text') }}" value="{{ edit_record.get(field.name, '') if edit_record else '' }}" {% if kind == 'students' and field.name == 'name' %}list="student-name-suggestions"{% elif kind == 'courses' and field.name == 'code' %}list="course-code-suggestions"{% elif kind == 'courses' and field.name == 'title' %}list="course-title-suggestions"{% endif %} {% if field.min is defined %}min="{{ field.min }}"{% endif %} {% if field.max is defined %}max="{{ field.max }}"{% endif %} {% if field.step is defined %}step="{{ field.step }}"{% endif %} {% if field.required %}required{% endif %}>{% if kind == 'students' and field.name == 'name' %}<datalist id="student-name-suggestions">{% for row in rows %}<option value="{{ row.name }}">{% endfor %}</datalist>{% elif kind == 'courses' and field.name == 'code' %}<datalist id="course-code-suggestions">{% for row in rows %}<option value="{{ row.code }}">{% endfor %}</datalist>{% elif kind == 'courses' and field.name == 'title' %}<datalist id="course-title-suggestions">{% for row in rows %}<option value="{{ row.title }}">{% endfor %}</datalist>{% endif %}{% endif %}
+      </div>
+      {% endfor %}
+      <div class="form-actions"><button class="button button-primary" type="submit">{% if edit_record %}Save changes{% else %}Add {{ config.singular }}{% endif %} <span>→</span></button>{% if edit_record %}<a class="button button-quiet" href="{{ url_for('manage_entity', kind=kind) }}">Cancel</a>{% endif %}</div>
+    </form>
+    {% if kind == 'students' %}<p class="form-note">Student department association is editable above. Use <a href="{{ url_for('relationships') }}">Relationships</a> to add enrollments.</p>{% elif kind == 'professors' %}<p class="form-note">Use <a href="{{ url_for('relationships') }}">Relationships</a> to assign departments and teaching.</p>{% elif kind == 'courses' %}<p class="form-note">Use <a href="{{ url_for('relationships') }}">Relationships</a> to select offering departments.</p>{% endif %}
+  </section>
+  <section class="panel table-panel">
+    <div class="panel-heading"><div><div class="eyebrow">DIRECTORY</div><h2>All {{ config.title|lower }}</h2></div><div class="table-search"><span>⌕</span><input type="search" placeholder="Filter records" aria-label="Filter records" data-table-search></div></div>
+    <div class="table-wrap"><table data-filter-table><thead><tr>{% for column in config.columns %}<th>{{ column|replace('_', ' ') }}</th>{% endfor %}<th class="actions-heading">ACTIONS</th></tr></thead><tbody>
+      {% for row in rows %}<tr>{% for column in config.columns %}<td>{% if column == 'code' %}<span class="code-chip">{{ row[column] }}</span>{% elif column == 'name' %}<strong>{{ row[column] }}</strong>{% elif column == 'email' and row[column] %}<a class="email-link" href="mailto:{{ row[column] }}">{{ row[column] }}</a>{% else %}{{ row[column] or '—' }}{% endif %}</td>{% endfor %}
+      <td><div class="row-actions">{% if kind == 'students' %}<a class="icon-button" href="{{ url_for('college.student_profile',student_id=row.id) }}" title="View profile" aria-label="View profile">↗</a>{% elif kind == 'professors' %}<a class="icon-button" href="{{ url_for('college.faculty_profile',professor_id=row.id) }}" title="View profile" aria-label="View profile">↗</a>{% elif kind == 'departments' %}<a class="icon-button" href="{{ url_for('college.department_profile',department_id=row.id) }}" title="Department overview" aria-label="Department overview">↗</a>{% endif %}<a class="icon-button" href="{{ url_for('manage_entity', kind=kind, edit=row.id) }}" title="Edit record" aria-label="Edit record">✎</a><form method="post" action="{{ url_for('delete_entity', kind=kind, record_id=row.id) }}" data-confirm="Delete this record? Related assignments will also be removed."><button class="icon-button danger" title="Delete record" aria-label="Delete record">×</button></form></div></td></tr>
+      {% else %}<tr><td colspan="{{ config.columns|length + 1 }}"><div class="empty-state"><span>▤</span><p>No {{ config.title|lower }} yet. Add the first record using the form.</p></div></td></tr>{% endfor %}
+    </tbody></table></div><div class="table-footer"><span>{{ rows|length }} record{% if rows|length != 1 %}s{% endif %}</span><span class="table-foot-note">Changes are reflected in stored logical facts</span></div>
+  </section>
+</div>
+{% endblock %}

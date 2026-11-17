@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% block title %}Query history{% endblock %}
+{% block breadcrumb %}Query history{% endblock %}
+{% block content %}
+<div class="page-heading heading-row"><div><div class="eyebrow"><span class="eyebrow-line"></span> REASONING WORKSPACE</div><h1>Query <span>history.</span></h1><p>Questions asked against the current college knowledge base.</p></div><a class="button button-primary" href="{{ url_for('query_page') }}">Open query lab <span>→</span></a></div>
+<section class="panel table-panel">
+  <div class="panel-heading"><div><div class="eyebrow">RECENT QUERIES</div><h2>Activity log</h2></div><div class="table-search"><span>⌕</span><input type="search" placeholder="Filter queries" aria-label="Filter queries" data-table-search></div></div>
+  <div class="table-wrap"><table data-filter-table><thead><tr><th>QUESTION</th><th>ANSWER</th><th>TIME</th></tr></thead><tbody>
+  {% for item in history %}<tr><td><strong>{{ item.query_text }}</strong></td><td>{% set result = item.result|from_json %}{{ result.display_answer }}</td><td>{{ item.created_at }}</td></tr>{% else %}<tr><td colspan="3"><div class="empty-state"><span>◷</span><p>No queries have been run yet.</p><a class="text-link" href="{{ url_for('query_page') }}">Run your first query →</a></div></td></tr>{% endfor %}
+  </tbody></table></div><div class="table-footer"><span>Showing up to 100 recent queries</span><span class="table-foot-note">Saved locally in SQLite</span></div>
+</section>
+{% endblock %}

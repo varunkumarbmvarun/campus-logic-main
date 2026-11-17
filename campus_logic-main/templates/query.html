@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Query lab{% endblock %}
+{% block breadcrumb %}Query lab{% endblock %}
+{% block content %}
+<div class="page-heading"><div class="eyebrow"><span class="eyebrow-line"></span> FOL REASONING WORKSPACE</div><h1>Ask. Infer. <span>Understand.</span></h1><p>Run a supported question against stored facts and inspect every matched predicate and derivation.</p></div>
+<div class="content-grid query-layout">
+  <section class="panel query-workbench">
+    <div class="panel-heading"><div><div class="eyebrow">QUERY BUILDER</div><h2>Build a question</h2></div><span class="panel-icon">⌕</span></div>
+    <form method="post" class="stack-form" id="query-builder">
+      <div class="field"><label for="query_type">Question type</label><select id="query_type" name="query_type">
+        <option value="who_teaches">Who teaches a course?</option>
+        <option value="students_enrolled">Which students are enrolled in a course?</option>
+        <option value="is_associated">Is a person associated with a department?</option>
+        <option value="professors_in_department">Which professors belong to a department?</option>
+        <option value="courses_offered">Which courses are offered by a department?</option>
+        <option value="students_study">Which students study a course?</option>
+        <option value="department_of_professor">Which department is associated with a professor?</option>
+        <option value="professors_teaching_department">Which professors teach courses offered by a department?</option>
+        <option value="hod_of_department">Who is the HOD of a department?</option>
+        <option value="low_attendance">Which students have low attendance?</option>
+        <option value="pending_fees">Which students have pending fees?</option>
+        <option value="pending_submissions">Which students have not submitted assignments?</option>
+        <option value="students_in_department_subjects">Which students are enrolled in subjects offered by a department?</option>
+      </select></div>
+      <div class="field" data-builder-value><label for="value" data-value-label>Course or department</label><input id="value" name="value" list="known-values" placeholder="e.g. AI" autocomplete="off"></div>
+      <div class="field conditional-field" data-builder-person hidden><label for="person">Person</label><input id="person" name="person" list="people-values" placeholder="e.g. Ravi" autocomplete="off"></div>
+      <div class="field conditional-field" data-builder-department hidden><label for="department">Department</label><input id="department" name="department" list="department-values" placeholder="e.g. CSE" autocomplete="off"></div>
+      <datalist id="course-values">{% for item in options.courses %}<option value="{{ item.label }}">{% endfor %}</datalist>
+      <datalist id="people-values">{% for item in options.students %}<option value="{{ item.label }}">{% endfor %}{% for item in options.professors %}<option value="{{ item.label }}">{% endfor %}</datalist>
+      <datalist id="department-values">{% for item in options.departments %}<option value="{{ item.label }}">{% endfor %}</datalist>
+      <button class="button button-primary query-submit" type="submit">Run reasoning <span>→</span></button>
+    </form>
+    <div class="divider-label"><span>OR ENTER A SUPPORTED QUESTION</span></div>
+    <form method="post" class="raw-query-form"><label class="sr-only" for="raw-query">Enter question</label><input id="raw-query" name="query" value="{{ query_text if not result else '' }}" placeholder="e.g. Which students study DBMS?"><button class="button button-quiet" type="submit">Run</button></form>
+    <div class="supported-box"><strong>Supported question patterns</strong><ul><li>Who teaches [course]?</li><li>Which students are enrolled in [course]?</li><li>Is [student] associated with [department]?</li><li>Which professors belong to [department]?</li><li>Which courses are offered by [department]?</li><li>Which students study [course]?</li><li>Which department is associated with [professor]?</li><li>Which professors teach courses offered by [department]?</li></ul></div>
+  </section>
+  <section class="panel result-panel">
+    <div class="panel-heading"><div><div class="eyebrow">REASONING TRACE</div><h2>Query result</h2></div>{% if result %}<span class="result-status">COMPLETE</span>{% else %}<span class="panel-icon">∴</span>{% endif %}</div>
+    {% if error %}<div class="error-block"><span>!</span><div><strong>Query not run</strong><p>{{ error }}</p></div></div>{% elif result %}
+      <div class="query-statement"><small>YOUR QUESTION</small><strong>{{ result.query }}</strong></div>
+      <div class="answer-card"><small>FINAL ANSWER</small><div class="answer-value">{{ result.display_answer }}</div><p>{{ result.explanation }}</p></div>
+      <div class="trace-section"><h3>Matched predicates</h3><div class="tag-list">{% for predicate in result.matched_predicates %}<span class="logic-tag">{{ predicate }}</span>{% else %}<span class="muted">No predicates matched.</span>{% endfor %}</div></div>
+      <div class="trace-section"><h3>Inference rules applied</h3>{% if result.rules_applied %}<div class="rule-applied-list">{% for rule in result.rules_applied %}<span class="applied-rule">∴ {{ rule }}</span>{% endfor %}</div>{% else %}<p class="muted">No inference was needed; the answer came directly from stored facts.</p>{% endif %}</div>
+      <div class="trace-section"><h3>Matched facts <span>{{ result.matched_facts|length }}</span></h3>{% if result.matched_facts %}<div class="matched-list">{% for fact in result.matched_facts %}<div class="matched-fact"><code>{{ fact.predicate }}({{ fact.arguments|join(', ') }})</code><span class="fact-source {{ fact.source }}">{{ fact.source }}</span><small>{{ fact.derivation }}</small></div>{% endfor %}</div>{% else %}<div class="small-empty">No supporting facts found for this query.</div>{% endif %}</div>
+    {% else %}<div class="empty-state result-empty"><span>✳</span><h3>Ready when you are</h3><p>Choose a structured query or enter one of the supported patterns to see the knowledge base reason.</p></div>{% endif %}
+  </section>
+</div>
+{% endblock %}

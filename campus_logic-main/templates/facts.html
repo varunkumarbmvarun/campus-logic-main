@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+{% block title %}Facts & rules{% endblock %}
+{% block breadcrumb %}Facts &amp; rules{% endblock %}
+{% block content %}
+<div class="page-heading heading-row">
+  <div><div class="eyebrow"><span class="eyebrow-line"></span> KNOWLEDGE EXPLORER</div><h1>Facts become <span>knowledge.</span></h1><p>Inspect asserted facts, their derived consequences, and the rules that connect them.</p></div>
+  <div class="count-badge"><strong>{{ base_facts|length }}</strong><span>stored facts</span></div>
+</div>
+<div class="facts-layout">
+  <section class="panel add-fact-panel">
+    <div class="panel-heading"><div><div class="eyebrow">ASSERT A FACT</div><h2>Add logical fact</h2></div><span class="panel-icon">+</span></div>
+    <p class="panel-intro">Unary predicates take one argument; relations take two. Relation arguments must reference existing typed facts.</p>
+    <form method="post" class="stack-form" data-fact-form>
+      <input type="hidden" name="action" value="add">
+      <div class="field"><label for="predicate">Predicate</label><select id="predicate" name="predicate"><option>Student</option><option>Professor</option><option>Course</option><option>Department</option><option>Enrolled</option><option>Teaches</option><option>BelongsTo</option><option>OfferedBy</option></select></div>
+      <div class="field"><label for="arg1">Argument 1</label><input id="arg1" name="arg1" required placeholder="e.g. Ravi"></div>
+      <div class="field" data-fact-arg2 hidden><label for="arg2">Argument 2</label><input id="arg2" name="arg2" placeholder="e.g. AI"></div>
+      <button class="button button-primary" type="submit">Add fact <span>→</span></button>
+    </form>
+    <div class="notice-box"><strong>Record-managed facts</strong><p>Facts sourced from students, courses, and assignments stay synchronized with their records. Remove those through the matching management page.</p></div>
+  </section>
+  <div class="facts-main">
+    <section class="panel table-panel">
+      <div class="panel-heading"><div><div class="eyebrow">ASSERTED KNOWLEDGE</div><h2>Stored facts <span class="inline-count">{{ base_facts|length }}</span></h2></div><div class="table-search"><span>⌕</span><input type="search" placeholder="Filter facts" aria-label="Filter facts" data-table-search></div></div>
+      <div class="table-wrap"><table data-filter-table><thead><tr><th>PREDICATE</th><th>ARGUMENTS</th><th>SOURCE</th><th>ACTION</th></tr></thead><tbody>
+      {% for fact in base_facts %}<tr><td><span class="code-chip">{{ fact.predicate }}</span></td><td><code>{{ fact.arg1 }}{% if fact.arg2 %}, {{ fact.arg2 }}{% endif %}</code></td><td><span class="fact-source {{ fact.source }}">{{ fact.source }}</span></td><td>{% if fact.source == 'manual' %}<form method="post" data-confirm="Remove this manually asserted fact?"><input type="hidden" name="action" value="delete"><input type="hidden" name="fact_id" value="{{ fact.id }}"><button class="icon-button danger" aria-label="Remove fact">×</button></form>{% else %}<span class="muted">managed</span>{% endif %}</td></tr>
+      {% else %}<tr><td colspan="4"><div class="empty-state"><span>◈</span><p>No facts stored yet.</p></div></td></tr>{% endfor %}
+      </tbody></table></div>
+    </section>
+    <section class="panel table-panel derived-panel">
+      <div class="panel-heading"><div><div class="eyebrow">FORWARD CHAINING</div><h2>Derived facts <span class="inline-count derived-count">{{ derived_facts|length }}</span></h2></div><span class="derived-badge">CALCULATED LIVE</span></div>
+      <div class="table-wrap"><table><thead><tr><th>DERIVED PREDICATE</th><th>ARGUMENTS</th><th>RULE</th></tr></thead><tbody>
+      {% for fact in derived_facts %}<tr><td><span class="code-chip inferred">{{ fact.predicate }}</span></td><td><code>{{ fact.arguments|join(', ') }}</code></td><td><span class="rule-id">{{ fact.rule_id }}</span></td></tr>
+      {% else %}<tr><td colspan="3"><div class="small-empty">No new facts have been inferred from the current knowledge base.</div></td></tr>{% endfor %}
+      </tbody></table></div>
+      <div class="existential-status {% if existential.satisfied %}status-ok{% else %}status-warn{% endif %}"><span>{% if existential.satisfied %}✓{% else %}!{% endif %}</span><div><strong>Rule R2 · existential constraint</strong><p>{{ existential.message }}</p></div></div>
+    </section>
+  </div>
+</div>
+<section class="panel rules-panel">
+  <div class="panel-heading"><div><div class="eyebrow">DECLARATIVE LOGIC</div><h2>Inference rules</h2></div><span class="panel-icon">∴</span></div>
+  <div class="rules-list">{% for rule in rules %}<article class="rule-card"><span class="rule-id">{{ rule.id }}</span><div><h3>{{ rule.name }}</h3><code>{{ rule.formula }}</code><p>{{ rule.description }}</p></div></article>{% endfor %}</div>
+</section>
+{% endblock %}

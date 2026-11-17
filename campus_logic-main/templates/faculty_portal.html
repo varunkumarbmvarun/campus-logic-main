@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Faculty overview{% endblock %}
+{% block breadcrumb %}Faculty overview{% endblock %}
+{% block content %}
+<div class="page-heading heading-row">
+  <div><div class="eyebrow"><span class="eyebrow-line"></span> FACULTY WORKSPACE</div><h1>Welcome, <span>{{ professor.name }}.</span></h1><p>{{ professor.designation or 'Faculty' }} · {{ professor.employee_id or 'Employee ID not assigned' }} · {{ today.strftime('%A, %d %B %Y') }}</p></div>
+  <a class="button button-primary" href="{{ url_for('college.faculty_profile',professor_id=professor.id) }}">My faculty profile <span>→</span></a>
+</div>
+<div class="stats-grid role-stats">
+  <article class="stat-card"><div class="stat-top"><span class="stat-icon blue">▤</span><span class="stat-trend">MY LOAD</span></div><div class="stat-value">{{ stats.subjects }}</div><div class="stat-label">Assigned subjects</div><div class="stat-foot">Current subject assignments</div></article>
+  <article class="stat-card"><div class="stat-top"><span class="stat-icon purple">♙</span><span class="stat-trend">MY ROSTER</span></div><div class="stat-value">{{ stats.students }}</div><div class="stat-label">Enrolled students</div><div class="stat-foot">Across your assigned subjects</div></article>
+  <article class="stat-card"><div class="stat-top"><span class="stat-icon cyan">⇧</span><span class="stat-trend">UPCOMING</span></div><div class="stat-value">{{ stats.assignments }}</div><div class="stat-label">Open assignments</div><div class="stat-foot">With future deadlines</div></article>
+  <article class="stat-card"><div class="stat-top"><span class="stat-icon orange">◷</span><span class="stat-trend">REVIEW</span></div><div class="stat-value">{{ stats.pending_reviews }}</div><div class="stat-label">Submissions to review</div><div class="stat-foot">Submitted or under evaluation</div></article>
+</div>
+<div class="quick-link-row faculty-actions">
+  <a class="button button-quiet" href="{{ url_for('college.marks') }}">Enter marks</a>
+  <a class="button button-quiet" href="{{ url_for('college.attendance') }}">Mark attendance</a>
+  <a class="button button-quiet" href="{{ url_for('college.assignments') }}">Assignments &amp; review</a>
+  <a class="button button-quiet" href="{{ url_for('college.timetable') }}">My timetable</a>
+</div>
+<div class="content-grid dashboard-grid">
+  <section class="panel table-panel"><div class="panel-heading"><div><div class="eyebrow">TODAY</div><h2>Teaching schedule</h2></div></div>
+    <div class="table-wrap"><table><thead><tr><th>PERIOD</th><th>TIME</th><th>SUBJECT</th><th>SECTION</th><th>ROOM</th></tr></thead><tbody>{% for row in today_classes %}<tr><td>{{ row.period }}</td><td>{{ row.start_time }}–{{ row.end_time }}</td><td>{{ row.subject_code }} · {{ row.subject_name }}</td><td>{{ row.section }}</td><td>{{ row.classroom }}</td></tr>{% else %}<tr><td colspan="5" class="muted">No classes are scheduled for today.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+  <section class="panel table-panel"><div class="panel-heading"><div><div class="eyebrow">MY SUBJECTS</div><h2>Assigned classes</h2></div><a class="text-link" href="{{ url_for('college.subjects') }}">Subject list →</a></div>
+    <div class="table-wrap"><table><thead><tr><th>CODE</th><th>SUBJECT</th><th>TERM</th><th>STUDENTS</th></tr></thead><tbody>{% for row in subjects %}<tr><td>{{ row.code }}</td><td>{{ row.name }}</td><td>Sem {{ row.semester }} · {{ row.academic_year }}</td><td>{{ row.student_count }}</td></tr>{% else %}<tr><td colspan="4" class="muted">No subjects are assigned to your faculty account.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+</div>
+<div class="content-grid dashboard-grid">
+  <section class="panel table-panel"><div class="panel-heading"><div><div class="eyebrow">ASSIGNMENTS</div><h2>Upcoming deadlines</h2></div><a class="text-link" href="{{ url_for('college.assignments') }}">Open assignments →</a></div>
+    <div class="table-wrap"><table><thead><tr><th>ASSIGNMENT</th><th>SUBJECT</th><th>DEADLINE</th><th>TO REVIEW</th></tr></thead><tbody>{% for row in assignments %}<tr><td>{{ row.title }}</td><td>{{ row.subject_code }}</td><td>{{ row.deadline }}</td><td>{{ row.pending_count }}</td></tr>{% else %}<tr><td colspan="4" class="muted">No upcoming assignments.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+  <section class="panel table-panel"><div class="panel-heading"><div><div class="eyebrow">ASSESSMENT CALENDAR</div><h2>Upcoming exams</h2></div><a class="text-link" href="{{ url_for('college.exams') }}">Exam calendar →</a></div>
+    <div class="table-wrap"><table><thead><tr><th>DATE</th><th>SUBJECT</th><th>TYPE</th><th>TIME / HALL</th></tr></thead><tbody>{% for row in exams %}<tr><td>{{ row.exam_date }}</td><td>{{ row.subject_code }}</td><td>{{ row.exam_type }}</td><td>{{ row.start_time }}–{{ row.end_time }} · {{ row.hall }}</td></tr>{% else %}<tr><td colspan="4" class="muted">No upcoming exams for your subjects.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+</div>
+{% endblock %}

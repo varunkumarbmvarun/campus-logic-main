@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#10172a">
+  <meta name="csrf-token" content="{{ csrf_token }}">
+  <title>{% block title %}College Knowledge Base{% endblock %} · FOL</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4">
+  <script defer src="{{ url_for('static', filename='js/app.js') }}?v=4"></script>
+</head>
+<body {% if current_user.role in ['super_admin','college_admin','hod','faculty','student'] %}data-presence-enabled="true"{% endif %}>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="{{ url_for('dashboard') }}">
+        <span class="brand-mark">K<span>.</span></span>
+        <span><strong>Campus<span class="brand-light">Logic</span></strong><small>KNOWLEDGE SYSTEM</small></span>
+      </a>
+      <div class="sidebar-navigation">
+        <div class="nav-caption">WORKSPACE</div>
+        <nav class="navigation" aria-label="Main navigation">
+        <a class="nav-link {% if request.endpoint == 'dashboard' %}active{% endif %}" href="{{ url_for('dashboard') }}"><span class="nav-icon">⌂</span> Overview</a>
+        {% if current_user.role in ['student'] %}
+        <a class="nav-link" href="{{ url_for('college.student_portal') }}"><span class="nav-icon">♙</span> My records</a>
+        {% endif %}
+        <div class="nav-caption nav-caption-spaced">KNOWLEDGE BASE</div>
+        {% if current_user.role in ['super_admin','college_admin','hod','faculty'] %}
+        {% if current_user.role in ['super_admin','college_admin'] %}<a class="nav-link {% if request.endpoint == 'facts_page' %}active{% endif %}" href="{{ url_for('facts_page') }}"><span class="nav-icon">◈</span> Facts &amp; rules</a>{% endif %}
+        <a class="nav-link {% if request.endpoint == 'query_page' %}active{% endif %}" href="{{ url_for('query_page') }}"><span class="nav-icon">⌕</span> Query lab</a>
+        {% if current_user.role in ['super_admin','college_admin'] %}
+        <a class="nav-link {% if request.endpoint == 'history_page' %}active{% endif %}" href="{{ url_for('history_page') }}"><span class="nav-icon">◷</span> Query history</a>
+        {% endif %}
+        {% endif %}
+        {% if current_user.role in ['super_admin','college_admin'] %}
+        <div class="nav-caption nav-caption-spaced">COLLEGE DATA</div>
+        {% for key, config in entity_config.items() %}
+        <a class="nav-link {% if request.view_args and request.view_args.get('kind') == key %}active{% endif %}" href="{{ url_for('manage_entity', kind=key) }}"><span class="nav-icon">{% if key == 'students' %}♙{% elif key == 'professors' %}♧{% elif key == 'courses' %}▤{% else %}⌘{% endif %}</span> {{ config.title }}</a>
+        {% endfor %}
+        <a class="nav-link {% if request.endpoint == 'relationships' %}active{% endif %}" href="{{ url_for('relationships') }}"><span class="nav-icon">⤳</span> Relationships</a>
+        {% endif %}
+        {% if current_user.role == 'hod' and current_user.department_id %}
+        <div class="nav-caption nav-caption-spaced">DEPARTMENT</div>
+        <a class="nav-link" href="{{ url_for('college.department_profile',department_id=current_user.department_id) }}"><span class="nav-icon">⌘</span> {{ department_code or 'Department overview' }}</a>
+        {% endif %}
+        {% if current_user.role in ['super_admin','college_admin','hod','faculty','student'] %}
+        <div class="nav-caption nav-caption-spaced">ACADEMICS</div>
+        <a class="nav-link" href="{{ url_for('college.subjects') }}"><span class="nav-icon">▤</span> Subjects</a>
+        <a class="nav-link" href="{{ url_for('college.marks') }}"><span class="nav-icon">◫</span> Internal marks</a>
+        <a class="nav-link" href="{{ url_for('college.assignments') }}"><span class="nav-icon">⇧</span> Assignments</a>
+        <a class="nav-link" href="{{ url_for('college.attendance') }}"><span class="nav-icon">◷</span> Attendance</a>
+        <a class="nav-link" href="{{ url_for('college.timetable') }}"><span class="nav-icon">▦</span> Timetable</a>
+        <a class="nav-link" href="{{ url_for('college.exams') }}"><span class="nav-icon">✎</span> Examinations</a>
+        {% endif %}
+        {% if current_user.role in ['super_admin','college_admin','finance','student'] %}
+        <div class="nav-caption nav-caption-spaced">FINANCE</div>
+        <a class="nav-link" href="{{ url_for('college.fees') }}"><span class="nav-icon">$</span> Fees</a>
+        <a class="nav-link" href="{{ url_for('college.payments') }}"><span class="nav-icon">↗</span> Payments</a>
+        {% endif %}
+        <div class="nav-caption nav-caption-spaced">CAMPUS</div>
+        <a class="nav-link {% if request.endpoint == 'college.faculty_connect' %}active{% endif %}" href="{{ url_for('college.faculty_connect') }}"><span class="nav-icon">☎</span> Faculty connect</a>
+        <a class="nav-link" href="{{ url_for('college.announcements') }}"><span class="nav-icon">♢</span> Announcements</a>
+        {% if current_user.role in ['super_admin','college_admin','hod'] %}
+        <a class="nav-link" href="{{ url_for('college.faculty_attendance') }}"><span class="nav-icon">♧</span> Faculty attendance</a>
+        {% endif %}
+        {% if current_user.role in ['super_admin','college_admin','hod','faculty','finance'] %}
+        <a class="nav-link" href="{{ url_for('college.export_report', report_type='students', format='csv') }}"><span class="nav-icon">⇩</span> Reports</a>
+        {% endif %}
+        {% if current_user.role in ['super_admin','college_admin'] %}
+        <div class="nav-caption nav-caption-spaced">ADMINISTRATION</div>
+        <a class="nav-link" href="{{ url_for('manage_users') }}"><span class="nav-icon">♙</span> User accounts</a>
+        <a class="nav-link {% if request.endpoint == 'college.communication_admin' %}active{% endif %}" href="{{ url_for('college.communication_admin') }}"><span class="nav-icon">☎</span> Faculty contact settings</a>
+        <a class="nav-link" href="{{ url_for('college.audit_log_page') }}"><span class="nav-icon">◷</span> Audit trail</a>
+        {% if current_user.role == 'super_admin' %}<a class="nav-link" href="{{ url_for('college.download_database_backup') }}"><span class="nav-icon">⇩</span> Database backup</a>{% endif %}
+        {% endif %}
+        </nav>
+      </div>
+      <div class="sidebar-bottom">
+        <div class="logic-status"><span class="status-dot"></span><span><strong>{{ current_user.username }}</strong><small>{{ role_labels[current_user.role] }}</small></span></div>
+        <a class="account-settings-link" href="{{ url_for('change_password') }}">Change password</a>
+        <form method="post" action="{{ url_for('logout') }}" class="logout-form"><button type="submit">Sign out <span>↗</span></button></form>
+        <div class="sidebar-foot">FIRST-ORDER LOGIC <span>v1.0</span></div>
+      </div>
+    </aside>
+    <main class="main">
+      <header class="topbar">
+        <button class="mobile-menu" type="button" aria-label="Toggle navigation" data-menu-toggle>☰</button>
+        <div class="breadcrumb">CampusLogic <span>/</span> {% block breadcrumb %}Overview{% endblock %}</div>
+        <div class="topbar-right"><a class="notification-bell" href="{{ url_for('college.announcements') }}" aria-label="Notifications">♢{% if unread_count %}<span>{{ unread_count }}</span>{% endif %}</a><span class="live-pill"><i></i> LOCAL DATABASE</span><span class="avatar">{{ current_user.username[:2]|upper }}</span></div>
+      </header>
+      <section class="page-content">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}<div class="flash-stack">{% for category, message in messages %}<div class="flash {{ category }}"><span>{% if category == 'success' %}✓{% else %}!{% endif %}</span>{{ message }}<button type="button" aria-label="Dismiss" data-dismiss>×</button></div>{% endfor %}</div>{% endif %}
+        {% endwith %}
+        {% block content %}{% endblock %}
+      </section>
+      <footer class="footer">CampusLogic <span>·</span> A First-Order Logic college knowledge base</footer>
+    </main>
+  </div>
+</body>
+</html>

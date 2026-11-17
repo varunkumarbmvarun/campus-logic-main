@@ -1,0 +1,312 @@
+{% extends "base.html" %}
+{% block title %}Secure call{% endblock %}
+{% block breadcrumb %}Faculty connect / secure call{% endblock %}
+{% block content %}
+<div class="panel call-panel">
+  <div class="heading-row">
+    <div>
+      <div class="eyebrow"><span class="eyebrow-line"></span> PRIVATE LIVE SESSION</div>
+      <h1>Secure call with <span>{{ peer.name }}</span></h1>
+      <p>Phone numbers are hidden. The recipient must accept before audio/video is connected.</p>
+    </div>
+    <div class="count-badge"><span>Call</span><strong id="call-status">{% if is_caller %}Waiting for acceptance{% else %}Connected{% endif %}</strong></div>
+  </div>
+
+  <div class="video-grid">
+    <div class="video-card">
+      <video id="local-video" autoplay muted playsinline></video>
+      <div class="video-label">You</div>
+    </div>
+    <div class="video-card">
+      <video id="remote-video" autoplay playsinline></video>
+      <div class="video-label">{{ peer.name }}</div>
+    </div>
+  </div>
+
+  <div class="call-controls">
+    {% if is_caller %}
+      <button id="start-call" class="button button-primary" type="button" {% if call_status != 'active' %}disabled{% endif %}>Start audio/video</button>
+    {% else %}
+      <span class="call-waiting-note">Waiting for the caller to start audio/video…</span>
+    {% endif %}
+    <button id="toggle-microphone" class="button button-quiet" type="button" disabled>Mute microphone</button>
+    <button id="toggle-camera" class="button button-quiet" type="button" disabled>Turn camera off</button>
+    <button id="share-screen" class="button button-quiet" type="button" disabled>Share screen</button>
+    <form method="post" action="{{ url_for('college.end_faculty_call', room_id=room_id) }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <button class="button button-quiet" type="submit">End call</button>
+    </form>
+  </div>
+  <p id="call-message" class="call-message" role="status" aria-live="polite"></p>
+
+  <div class="callout">
+    <span aria-hidden="true">▣</span>
+    <div>
+      <strong>Share a live project demo</strong>
+      <p>Choose “Share screen” to select a window or screen. Sharing is opt-in and can be stopped at any time. No call is recorded.</p>
+    </div>
+  </div>
+</div>
+
+<script>
+  (() => {
+    const roomId = {{ room_id|tojson }};
+    const currentUserId = {{ current_user.id|tojson }};
+    const isCaller = {{ is_caller|tojson }};
+    let callActive = {{ (call_status == 'active')|tojson }};
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
+    const localVideo = document.getElementById('local-video');
+    const remoteVideo = document.getElementById('remote-video');
+    const statusNode = document.getElementById('call-status');
+    const messageNode = document.getElementById('call-message');
+    const startButton = document.getElementById('start-call');
+    const microphoneButton = document.getElementById('toggle-microphone');
+    const cameraButton = document.getElementById('toggle-camera');
+    const screenButton = document.getElementById('share-screen');
+    let peerConnection = null;
+    let localStream = null;
+    let cameraTrack = null;
+    let displayTrack = null;
+    let lastSignalId = 0;
+    let polling = false;
+    let closed = false;
+    const pendingCandidates = [];
+
+    const report = (message) => { messageNode.textContent = message; };
+    const setConnectedControls = (enabled) => {
+      microphoneButton.disabled = !enabled;
+      cameraButton.disabled = !enabled;
+      screenButton.disabled = !enabled;
+    };
+
+    async function sendSignal(kind, payload) {
+      const response = await fetch('/communication/call/' + encodeURIComponent(roomId) + '/signal', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRF-Token': csrfToken},
+        body: JSON.stringify({kind, payload}),
+        cache: 'no-store'
+      });
+      if (!response.ok) throw new Error('Unable to send a secure call signal (' + response.status + ').');
+    }
+
+    async function getLocalStream() {
+      if (!window.isSecureContext || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        throw new Error('Calls need a modern browser and a secure page. Use localhost for testing or HTTPS when deployed.');
+      }
+      if (!localStream) {
+        localStream = await navigator.mediaDevices.getUserMedia({video: true, audio: true});
+        cameraTrack = localStream.getVideoTracks()[0] || null;
+        localVideo.srcObject = localStream;
+      }
+      return localStream;
+    }
+
+    function makePeerConnection() {
+      if (peerConnection) return peerConnection;
+      if (!window.RTCPeerConnection) throw new Error('This browser does not support WebRTC calls.');
+      peerConnection = new RTCPeerConnection({
+        iceServers: {{ ice_servers|tojson }}
+      });
+      peerConnection.ontrack = (event) => {
+        if (event.streams && event.streams[0]) remoteVideo.srcObject = event.streams[0];
+      };
+      peerConnection.onicecandidate = (event) => {
+        if (event.candidate) {
+          sendSignal('candidate', event.candidate.toJSON()).catch((error) => report(error.message));
+        }
+      };
+      peerConnection.onconnectionstatechange = () => {
+        if (!peerConnection) return;
+        if (peerConnection.connectionState === 'connected') {
+          statusNode.textContent = 'Connected';
+          report('');
+        } else if (peerConnection.connectionState === 'failed') {
+          report('Connection failed. A TURN relay may be needed on your network.');
+        } else if (peerConnection.connectionState === 'disconnected') {
+          report('Connection interrupted. Trying to reconnect…');
+        }
+      };
+      return peerConnection;
+    }
+
+    function addLocalTracks(connection, stream) {
+      const existing = new Set(connection.getSenders().map((sender) => sender.track).filter(Boolean));
+      for (const track of stream.getTracks()) {
+        if (!existing.has(track)) connection.addTrack(track, stream);
+      }
+    }
+
+    async function acceptSignal(signal) {
+      const connection = makePeerConnection();
+      if (!localStream) addLocalTracks(connection, await getLocalStream());
+      if (signal.kind === 'offer') {
+        if (!isCaller) {
+          await connection.setRemoteDescription(new RTCSessionDescription(signal.payload));
+          while (pendingCandidates.length) {
+            await connection.addIceCandidate(pendingCandidates.shift());
+          }
+          const answer = await connection.createAnswer();
+          await connection.setLocalDescription(answer);
+          await sendSignal('answer', connection.localDescription.toJSON());
+          statusNode.textContent = 'Connecting';
+          setConnectedControls(true);
+        }
+      } else if (signal.kind === 'answer' && isCaller) {
+        await connection.setRemoteDescription(new RTCSessionDescription(signal.payload));
+        while (pendingCandidates.length) {
+          await connection.addIceCandidate(pendingCandidates.shift());
+        }
+        statusNode.textContent = 'Connecting';
+      } else if (signal.kind === 'candidate' && signal.payload && signal.payload.candidate) {
+        const candidate = new RTCIceCandidate(signal.payload);
+        if (connection.remoteDescription) await connection.addIceCandidate(candidate);
+        else pendingCandidates.push(candidate);
+      }
+    }
+
+    async function pollSignals() {
+      if (polling || closed) return;
+      polling = true;
+      try {
+        const response = await fetch('/communication/call/' + encodeURIComponent(roomId)
+          + '/signals?since_id=' + lastSignalId, {cache: 'no-store'});
+        if (response.status === 409) {
+          const statusResponse = await fetch('/communication/call/' + encodeURIComponent(roomId) + '/status', {cache: 'no-store'});
+          if (statusResponse.ok) {
+            const state = await statusResponse.json();
+            if (state.status === 'ended') {
+              closed = true;
+              statusNode.textContent = 'Ended';
+              report(state.ended_reason === 'declined' ? 'The call was declined.' : 'The call has ended.');
+              setConnectedControls(false);
+              freeLocalDevices();
+            }
+          }
+          return;
+        }
+        if (!response.ok) throw new Error('Unable to receive call signals (' + response.status + ').');
+        const data = await response.json();
+        for (const signal of data.signals || []) {
+          if (signal.sender_id !== currentUserId) await acceptSignal(signal);
+          lastSignalId = Math.max(lastSignalId, Number(signal.id) || 0);
+        }
+      } catch (error) {
+        report(error.message || 'The call connection could not be updated.');
+      } finally {
+        polling = false;
+      }
+    }
+
+    async function startCall() {
+      try {
+        if (!isCaller || !callActive) return;
+        const stream = await getLocalStream();
+        const connection = makePeerConnection();
+        addLocalTracks(connection, stream);
+        const offer = await connection.createOffer();
+        await connection.setLocalDescription(offer);
+        await sendSignal('offer', connection.localDescription.toJSON());
+        statusNode.textContent = 'Calling';
+        report('Call started. Waiting for the other person to connect.');
+        setConnectedControls(true);
+      } catch (error) {
+        report(error.message || 'Could not start the call. Check camera and microphone permissions.');
+      }
+    }
+
+    async function toggleScreenShare() {
+      try {
+        if (!peerConnection || peerConnection.connectionState === 'closed') {
+          report('Connect the call before sharing your screen.');
+          return;
+        }
+        if (displayTrack) {
+          displayTrack.stop();
+          return;
+        }
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getDisplayMedia) {
+          throw new Error('Screen sharing is not supported in this browser.');
+        }
+        const displayStream = await navigator.mediaDevices.getDisplayMedia({video: true});
+        displayTrack = displayStream.getVideoTracks()[0];
+        const sender = peerConnection.getSenders().find((item) => item.track && item.track.kind === 'video');
+        if (!sender || !displayTrack) throw new Error('The screen-share track could not be attached to this call.');
+        await sender.replaceTrack(displayTrack);
+        localVideo.srcObject = displayStream;
+        screenButton.textContent = 'Stop sharing';
+        displayTrack.onended = async () => {
+          const oldTrack = displayTrack;
+          displayTrack = null;
+          if (oldTrack) oldTrack.onended = null;
+          if (cameraTrack && peerConnection) {
+            const videoSender = peerConnection.getSenders().find((item) => item.track && item.track.kind === 'video');
+            if (videoSender) await videoSender.replaceTrack(cameraTrack);
+          }
+          localVideo.srcObject = localStream;
+          screenButton.textContent = 'Share screen';
+        };
+        report('You are sharing your screen. Select Stop sharing to end screen sharing.');
+      } catch (error) {
+        report(error.message || 'Screen sharing could not be started.');
+      }
+    }
+
+    document.getElementById('start-call')?.addEventListener('click', startCall);
+    microphoneButton.addEventListener('click', () => {
+      const track = localStream && localStream.getAudioTracks()[0];
+      if (track) {
+        track.enabled = !track.enabled;
+        microphoneButton.textContent = track.enabled ? 'Mute microphone' : 'Unmute microphone';
+      }
+    });
+    cameraButton.addEventListener('click', () => {
+      if (cameraTrack) {
+        cameraTrack.enabled = !cameraTrack.enabled;
+        cameraButton.textContent = cameraTrack.enabled ? 'Turn camera off' : 'Turn camera on';
+      }
+    });
+    screenButton.addEventListener('click', toggleScreenShare);
+
+    const freeLocalDevices = () => {
+      if (localStream) localStream.getTracks().forEach((track) => track.stop());
+      if (displayTrack) displayTrack.stop();
+      if (peerConnection) peerConnection.close();
+    };
+    window.addEventListener('pagehide', () => {
+      if (!closed) {
+        fetch('/communication/call/' + encodeURIComponent(roomId) + '/end', {
+          method: 'POST',
+          headers: {'X-CSRF-Token': csrfToken},
+          keepalive: true
+        }).catch((error) => console.error('Unable to close the call room:', error));
+      }
+      freeLocalDevices();
+    });
+    window.setInterval(pollSignals, 1200);
+    window.setInterval(async () => {
+      if (closed) return;
+      try {
+        const response = await fetch('/communication/call/' + encodeURIComponent(roomId) + '/status', {cache: 'no-store'});
+        if (response.ok) {
+          const state = await response.json();
+          if (state.status === 'active') {
+            callActive = true;
+            if (startButton) startButton.disabled = false;
+            if (isCaller && statusNode.textContent === 'Waiting for acceptance') {
+              statusNode.textContent = 'Accepted - ready';
+            }
+          } else if (state.status === 'ended') {
+            closed = true;
+            statusNode.textContent = 'Ended';
+            report(state.ended_reason === 'declined' ? 'The call was declined.' : 'The call has ended.');
+            setConnectedControls(false);
+            freeLocalDevices();
+          }
+        }
+      } catch (error) {
+        report(error.message || 'Unable to refresh the call status.');
+      }
+    }, 3000);
+  })();
+</script>
+{% endblock %}

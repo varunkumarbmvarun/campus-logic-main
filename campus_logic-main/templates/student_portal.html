@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% block title %}My student overview{% endblock %}
+{% block breadcrumb %}My overview{% endblock %}
+{% block content %}
+<div class="page-heading heading-row">
+  <div><div class="eyebrow"><span class="eyebrow-line"></span> MY STUDENT OVERVIEW</div><h1>Hello, <span>{{ student.name }}.</span></h1><p>{{ student.registration_no or 'Registration number not assigned' }} · {{ student.department_code or 'Department not assigned' }} · Semester {{ student.semester or '—' }} · {{ student.section or 'No section assigned' }}</p></div>
+  <a class="button button-primary" href="{{ url_for('college.student_profile', student_id=student.id) }}">View my profile <span>→</span></a>
+</div>
+<div class="stats-grid role-stats">
+  <article class="stat-card"><div class="stat-top"><span class="stat-icon blue">▤</span><span class="stat-trend">CURRENT TERM</span></div><div class="stat-value">{{ subject_count }}</div><div class="stat-label">Enrolled subjects</div><div class="stat-foot">{{ student.degree or 'Program not set' }}</div></article>
+  <article class="stat-card"><div class="stat-top"><span class="stat-icon purple">◷</span><span class="stat-trend">ATTENDANCE</span></div><div class="stat-value">{% if attendance_average is not none %}{{ attendance_average }}%{% else %}—{% endif %}</div><div class="stat-label">Overall attendance</div><div class="stat-foot">{% if attendance_average is none %}No attendance recorded{% else %}Across recorded class periods{% endif %}</div></article>
+  <article class="stat-card"><div class="stat-top"><span class="stat-icon orange">⇧</span><span class="stat-trend">TO DO</span></div><div class="stat-value">{{ pending_assignment_count }}</div><div class="stat-label">Outstanding assignments</div><div class="stat-foot">Not yet submitted</div></article>
+  <article class="stat-card"><div class="stat-top"><span class="stat-icon green">₹</span><span class="stat-trend">FEE BALANCE</span></div><div class="stat-value">{{ '%.2f'|format(fee_balance) }}</div><div class="stat-label">Outstanding fees</div><div class="stat-foot"><a href="{{ url_for('college.fees') }}">View fee details →</a></div></article>
+</div>
+<div class="content-grid dashboard-grid">
+  <section class="panel">
+    <div class="panel-heading"><div><div class="eyebrow">MY ACADEMIC STATUS</div><h2>{{ student.academic_status or 'Active' }}</h2></div></div>
+    <div class="role-detail-grid"><div><span>Degree / year</span><strong>{{ student.degree or 'Not set' }} · {{ student.academic_year or 'Not set' }}</strong></div><div><span>CGPA / SGPA</span><strong>{{ student.cgpa if student.cgpa is not none else 'Not recorded' }} / {{ student.sgpa if student.sgpa is not none else 'Not recorded' }}</strong></div></div>
+    <div class="quick-link-row"><a class="button button-quiet" href="{{ url_for('college.subjects') }}">My subjects</a><a class="button button-quiet" href="{{ url_for('college.attendance') }}">Attendance</a><a class="button button-quiet" href="{{ url_for('college.payments') }}">Payments</a></div>
+  </section>
+  <section class="panel table-panel"><div class="panel-heading"><div><div class="eyebrow">NEXT EXAMINATIONS</div><h2>Exam schedule</h2></div><a class="text-link" href="{{ url_for('college.exams') }}">All exams →</a></div>
+    <div class="table-wrap"><table><thead><tr><th>DATE</th><th>SUBJECT</th><th>TIME</th><th>HALL</th></tr></thead><tbody>{% for row in upcoming_exams %}<tr><td>{{ row.exam_date }}</td><td>{{ row.subject_code }} · {{ row.exam_type }}</td><td>{{ row.start_time }}–{{ row.end_time }}</td><td>{{ row.hall }}</td></tr>{% else %}<tr><td colspan="4" class="muted">No upcoming exams scheduled.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+</div>
+<div class="content-grid dashboard-grid">
+  <section class="panel table-panel"><div class="panel-heading"><div><div class="eyebrow">ASSIGNMENT TRACKER</div><h2>Work to submit</h2></div><a class="text-link" href="{{ url_for('college.assignments') }}">All assignments →</a></div>
+    <div class="table-wrap"><table><thead><tr><th>ASSIGNMENT</th><th>SUBJECT</th><th>DUE</th></tr></thead><tbody>{% for row in pending_assignments %}<tr><td>{{ row.title }}</td><td>{{ row.subject_code }}</td><td>{{ row.deadline }}</td></tr>{% else %}<tr><td colspan="3" class="muted">No outstanding assignments.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+  <section class="panel table-panel"><div class="panel-heading"><div><div class="eyebrow">MY RESULTS</div><h2>Recent internal marks</h2></div><a class="text-link" href="{{ url_for('college.student_profile',student_id=student.id) }}">Full profile →</a></div>
+    <div class="table-wrap"><table><thead><tr><th>SUBJECT</th><th>ASSESSMENT</th><th>MARKS</th><th>MAX</th></tr></thead><tbody>{% for row in marks[:6] %}<tr><td>{{ row.subject_code }}</td><td>{{ row.assessment }}</td><td>{{ row.marks }}</td><td>{{ row.max_marks }}</td></tr>{% else %}<tr><td colspan="4" class="muted">No marks published.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+</div>
+<div class="content-grid dashboard-grid">
+  <section class="panel table-panel"><div class="panel-heading"><div><div class="eyebrow">SUBJECT ATTENDANCE</div><h2>My attendance</h2></div></div>
+    <div class="table-wrap"><table><thead><tr><th>SUBJECT</th><th>CLASSES</th><th>ATTENDED</th><th>PERCENTAGE</th></tr></thead><tbody>{% for row in attendance %}<tr><td>{{ row.code }}</td><td>{{ row.total }}</td><td>{{ row.attended }}</td><td class="{% if row.percentage < attendance_threshold %}low-attendance{% endif %}">{{ row.percentage }}%</td></tr>{% else %}<tr><td colspan="4" class="muted">No attendance records yet.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+  <section class="panel table-panel"><div class="panel-heading"><div><div class="eyebrow">WEEKLY SCHEDULE</div><h2>My timetable</h2></div><a class="text-link" href="{{ url_for('college.timetable') }}">Full timetable →</a></div>
+    <div class="table-wrap"><table><thead><tr><th>DAY</th><th>PERIOD</th><th>TIME</th><th>SUBJECT</th><th>ROOM</th></tr></thead><tbody>{% for row in timetable %}<tr><td>{{ ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][row.day_of_week] }}</td><td>{{ row.period }}</td><td>{{ row.start_time }}–{{ row.end_time }}</td><td>{{ row.subject_code }}</td><td>{{ row.classroom }}</td></tr>{% else %}<tr><td colspan="5" class="muted">No timetable entries for your section.</td></tr>{% endfor %}</tbody></table></div>
+  </section>
+</div>
+{% endblock %}

@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Relationships{% endblock %}
+{% block breadcrumb %}Relationships{% endblock %}
+{% block content %}
+<div class="page-heading"><div class="eyebrow"><span class="eyebrow-line"></span> COLLEGE DATA</div><h1>Connect the <span>knowledge.</span></h1><p>Relationships become binary predicates that the inference engine can match and reason over.</p></div>
+<div class="relation-grid">
+{% set relation_forms = [
+  ('enrollment', 'Student enrollment', 'Enrolled(student, course)', 'students', 'Student', 'courses', 'Course'),
+  ('teaching', 'Teaching assignment', 'Teaches(professor, course)', 'professors', 'Professor', 'courses', 'Course'),
+  ('membership', 'Department membership', 'BelongsTo(professor, department)', 'professors', 'Professor', 'departments', 'Department'),
+  ('offering', 'Course offering', 'OfferedBy(course, department)', 'courses', 'Course', 'departments', 'Department')
+] %}
+{% for key, title, predicate, left_group, left_label, right_group, right_label in relation_forms %}
+<section class="panel relation-card">
+  <div class="panel-heading"><div><div class="eyebrow">PREDICATE</div><h2>{{ title }}</h2></div><span class="panel-icon">⤳</span></div>
+  <code class="predicate-preview">{{ predicate }}</code>
+  <form method="post" action="{{ url_for('add_relationship', kind=key) }}" class="relation-form">
+    <div class="field"><label for="{{ key }}-left">{{ left_label }}</label><select id="{{ key }}-left" name="{{ {'students':'student_id','professors':'professor_id','courses':'course_id','departments':'department_id'}[left_group] }}" required><option value="">Select {{ left_label|lower }}</option>{% for item in options[left_group] %}<option value="{{ item.id }}">{{ item.label }}</option>{% endfor %}</select></div>
+    <span class="relation-arrow">→</span>
+    <div class="field"><label for="{{ key }}-right">{{ right_label }}</label><select id="{{ key }}-right" name="{{ {'students':'student_id','professors':'professor_id','courses':'course_id','departments':'department_id'}[right_group] }}" required><option value="">Select {{ right_label|lower }}</option>{% for item in options[right_group] %}<option value="{{ item.id }}">{{ item.label }}</option>{% endfor %}</select></div>
+    <button class="button button-primary relation-submit" type="submit">Add relationship <span>+</span></button>
+  </form>
+  <div class="relation-list">{% for relation in relations[key] %}<div class="relation-row"><span>{{ relation.left_name }}</span><i>→</i><span>{{ relation.right_name }}</span><form method="post" action="{{ url_for('delete_relationship', kind=key, left_id=relation.left_id, right_id=relation.right_id) }}" data-confirm="Remove this relationship?"><button class="icon-button danger" aria-label="Remove relationship">×</button></form></div>{% else %}<div class="small-empty">No relationships yet.</div>{% endfor %}</div>
+</section>
+{% endfor %}
+</div>
+<div class="callout"><span>✦</span><div><strong>What happens next?</strong><p>These links are persisted as facts. For example, an enrollment plus Student(x) derives Studies(x, y), and the course offering can then derive AssociatedWith(x, department).</p></div><a href="{{ url_for('facts_page') }}">View facts →</a></div>
+{% endblock %}

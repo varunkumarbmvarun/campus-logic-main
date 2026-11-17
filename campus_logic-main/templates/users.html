@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}User accounts{% endblock %}
+{% block breadcrumb %}User accounts{% endblock %}
+{% block content %}
+<div class="page-heading"><div class="eyebrow"><span class="eyebrow-line"></span> ACCESS CONTROL</div><h1>Account <span>administration.</span></h1><p>Create role-based logins and link student, faculty, or department profiles. Passwords are stored as salted hashes.</p></div>
+<div class="content-grid manage-grid">
+  <section class="panel form-panel">
+    <div class="panel-heading"><div><div class="eyebrow">NEW USER</div><h2>Create account</h2></div><span class="panel-icon">+</span></div>
+    <form method="post" class="stack-form">
+      <div class="field"><label for="username">Username</label><input id="username" name="username" required maxlength="80"></div>
+      <div class="field"><label for="password">Temporary password (12+ characters)</label><input id="password" name="password" type="password" minlength="12" required autocomplete="new-password"></div>
+      <div class="field"><label for="role">Role</label><select id="role" name="role" required><option value="" selected disabled>Select an account role</option>{% for key,label in roles.items() %}<option value="{{ key }}">{{ label }}</option>{% endfor %}</select></div>
+      <div class="field" data-user-student><label for="student_id">Student profile</label><select id="student_id" name="student_id"><option value="">Select a student</option>{% for row in options.students %}<option value="{{ row.id }}">{{ row.label }}</option>{% endfor %}</select><small class="profile-link-hint">Choose Student as the role to enable this link.</small></div>
+      <div class="field" data-user-professor hidden><label for="professor_id">Linked faculty record</label><select id="professor_id" name="professor_id"><option value="">Select professor</option>{% for row in options.professors %}<option value="{{ row.id }}">{{ row.name }}</option>{% endfor %}</select></div>
+      <div class="field" data-user-department hidden><label for="department_id">Department</label><select id="department_id" name="department_id"><option value="">Select department</option>{% for row in options.departments %}<option value="{{ row.id }}">{{ row.code }} · {{ row.name }}</option>{% endfor %}</select></div>
+      <button class="button button-primary" type="submit">Create account <span>→</span></button>
+    </form>
+    <div class="notice-box"><strong>Role boundaries</strong><p>Students are linked to exactly one student record. Faculty accounts are linked to a professor. HOD accounts are scoped to a department. Finance access does not permit student record editing.</p></div>
+  </section>
+  <section class="panel table-panel">
+    <div class="panel-heading"><div><div class="eyebrow">REGISTERED USERS</div><h2>Accounts</h2></div><div class="table-search"><span>⌕</span><input type="search" placeholder="Filter users" data-table-search></div></div>
+    <div class="table-wrap"><table data-filter-table><thead><tr><th>USERNAME</th><th>ROLE</th><th>LINKED PROFILE</th><th>CREATED</th><th>STATUS</th></tr></thead><tbody>
+      {% for user in users %}<tr><td><strong>{{ user.username }}</strong></td><td><span class="code-chip">{{ role_labels[user.role] }}</span></td><td>{{ user.student_name or user.professor_name or user.department_code or '—' }}</td><td>{{ user.created_at }}</td><td>{% if current_user.role == 'super_admin' and user.id != current_user.id %}<form method="post" action="{{ url_for('toggle_user',user_id=user.id) }}"><button class="button button-quiet" type="submit">{{ 'Disable' if user.active else 'Enable' }}</button></form>{% else %}{{ 'Active' if user.active else 'Disabled' }}{% endif %}</td></tr>
+      {% else %}<tr><td colspan="5"><div class="empty-state"><span>♙</span><p>No accounts exist.</p></div></td></tr>{% endfor %}
+    </tbody></table></div>
+  </section>
+</div>
+{% endblock %}

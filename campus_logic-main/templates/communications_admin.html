@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Faculty contact settings{% endblock %}
+{% block breadcrumb %}Faculty contact settings{% endblock %}
+{% block content %}
+<div class="page-heading">
+  <div class="eyebrow"><span class="eyebrow-line"></span> ADMINISTRATION</div>
+  <h1>Faculty contact <span>settings.</span></h1>
+  <p>Enable or pause in-app chat and call invitations. Phone numbers are not displayed or changed here.</p>
+</div>
+<section class="panel table-panel">
+  <div class="panel-heading">
+    <div><div class="eyebrow">CONTACT CHANNELS</div><h2>Faculty channels</h2></div>
+    <div class="table-search"><span>⌕</span><input type="search" placeholder="Filter faculty" aria-label="Filter faculty" data-table-search></div>
+  </div>
+  <div class="table-wrap">
+    <table data-filter-table>
+      <thead><tr><th>FACULTY</th><th>SUBJECTS</th><th>ACCOUNT</th><th>IN-APP CONTACT</th><th>ACTION</th></tr></thead>
+      <tbody>
+        {% for user in faculty %}
+          <tr>
+            <td><strong>{{ user.faculty_name }}</strong><br><span class="muted">{{ user.username }}</span></td>
+            <td>{{ user.subject_codes or 'No assigned subjects' }}</td>
+            <td><span class="code-chip">{{ 'Active' if user.active else 'Disabled' }}</span></td>
+            <td><span class="presence-chip {{ 'presence-enabled' if user.contact_enabled else 'presence-disabled' }}">{{ 'Enabled' if user.contact_enabled else 'Paused' }}</span></td>
+            <td>
+              <form method="post" action="{{ url_for('college.toggle_faculty_communication', user_id=user.id) }}">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+                <button class="button button-quiet" type="submit"
+                        data-confirm="Are you sure you want to {{ 'pause' if user.contact_enabled else 'enable' }} in-app communication for {{ user.faculty_name }}?">
+                  {{ 'Pause contact' if user.contact_enabled else 'Enable contact' }}
+                </button>
+              </form>
+            </td>
+          </tr>
+        {% else %}
+          <tr><td colspan="5"><div class="empty-state"><span>☎</span><p>No faculty user accounts are linked to professor records yet.</p></div></td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
